@@ -1,0 +1,4 @@
+.idea/
+lib/
+venv/
+config.py
