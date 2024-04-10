@@ -316,6 +316,7 @@ def main():
                 time.sleep(config.update_interval)
                 gc.collect()
 
+            game.update()
             show_final(game)
             time.sleep(3600)
     except Exception as e:
