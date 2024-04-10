@@ -1,7 +1,7 @@
 import gc
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import machine
 import network
@@ -9,6 +9,7 @@ import ntptime
 import requests
 from machine import Pin, SPI
 from ssd1309 import Display
+from xglcd_font import XglcdFont
 
 import config
 
@@ -35,14 +36,27 @@ DISPLAY_CS = Pin(16)
 DISPLAY_RST = Pin(20)
 display: Display | None = None
 
+FONT_SYS = ('fonts/Wendy7x8.c', 7, 8)
+FONT_NORMAL = ('fonts/ArcadePix9x11.c', 9, 11)
+FONT_SCORE = ('fonts/PerfectPixel_18x25.c', 18, 25)
+font_sys: XglcdFont | None = None
+font_normal: XglcdFont | None = None
+font_score: XglcdFont | None = None
+
+try:
+    local_tz = timezone(timedelta(hours=config.tz_offset))
+except Exception as e:
+    sys.print_exception(e)
+    local_tz = timezone.utc
+
 
 class Team:
     def __init__(self, pk: int):
         self.pk = pk
 
         data = requests.get(f'https://statsapi.mlb.com/api/v1/teams/{pk}').json()
-        self.name = data['teams'][0]['name']
-        self.abbreviation = data['teams'][0]['abbreviation']
+        self.name: str = data['teams'][0]['name']
+        self.abbreviation: str = data['teams'][0]['abbreviation']
         del data
         gc.collect()
 
@@ -113,39 +127,50 @@ def init_display():
     display = Display(spi, dc=DISPLAY_DC, cs=DISPLAY_CS, rst=DISPLAY_RST)
 
 
+def init_fonts():
+    global font_sys, font_normal, font_score
+    font_sys = XglcdFont(*FONT_SYS)
+    font_normal = XglcdFont(*FONT_NORMAL)
+    font_score = XglcdFont(*FONT_SCORE)
+
+
+def reset_leds():
+    set_runners((False, False, False))
+    set_count(0, 0, 0)
+
+
+def display_sys_msg(msg: list[str] | str):
+    if not isinstance(msg, list):
+        msg = msg.splitlines()
+
+    display.clear()
+    for i, l in enumerate(msg):
+        line_len = font_sys.measure_text(l)
+        display.draw_text(
+            int(display.width / 2) - int(line_len / 2),
+            int(display.height / 2) + ((i - max(int(len(msg) / 2), 1)) * font_sys.height),
+            l, font_sys)
+    display.present()
+
+
 def connect_wifi(ssid: str, password: str):
+    display_sys_msg(f"Connecting...")
+
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(ssid, password)
 
-    i = 0
     while not wlan.isconnected():
-        display.clear()
-        display.draw_text8x8(0, 0, f"Connecting{'.' * i}")
-        display.present()
-        i = (i + 1) % 4
         time.sleep(1)
 
-    display.clear()
-    display.draw_text8x8(0, 0, 'Connected:')
-    display.draw_text8x8(0, 8, wlan.ifconfig()[0])
-    display.present()
+    display_sys_msg(['Connected:', wlan.ifconfig()[0]])
 
 
 def sync_time():
-    display.clear()
-    display.draw_text8x8(0, 0, 'Syncing')
-    display.draw_text8x8(0, 8, 'time...')
-    display.present()
-
+    display_sys_msg(f"Syncing time")
     ntptime.settime()
-
-    now = datetime.now(timezone.utc)
-    display.clear()
-    display.draw_text8x8(0, 0, 'Time Synced:')
-    display.draw_text8x8(0, 8, now.date().isoformat())
-    display.draw_text8x8(0, 16, now.time().isoformat())
-    display.present()
+    now = datetime.now(local_tz)
+    display_sys_msg(['Time synced:', now.isoformat()])
 
 
 def set_runners(runners: tuple[bool, bool, bool]):
@@ -168,6 +193,42 @@ def set_strikes(strikes: int):
 def set_outs(outs: int):
     OUT_1_LED.value(int(outs >= 1))
     OUT_2_LED.value(int(outs >= 2))
+
+
+def set_count(balls: int, strikes: int, outs: int):
+    set_balls(balls)
+    set_strikes(strikes)
+    set_outs(outs)
+
+
+def set_score(home_team: Team, away_team: Team, home_score: int, away_score: int, inning: int = 0, top_of_inning: bool = False, final: bool = False):
+    display.clear()
+
+    # draw team abbreviations at top and bottom left corners
+    display.draw_text(0, 0, away_team.abbreviation, font_score)
+    display.draw_text(0, display.height - font_score.height, home_team.abbreviation, font_score)
+
+    # draw scores at top and bottom right corners
+    display.draw_text(display.width - font_score.measure_text(str(away_score)), 0, str(away_score), font_score)
+    display.draw_text(display.width - font_score.measure_text(str(home_score)), display.height - font_score.height, str(home_score), font_score)
+
+    # draw inning in the middle of remaining space
+    inning_txt = 'F' if final else str(inning)
+    x1 = max([font_score.measure_text(home_team.abbreviation), font_score.measure_text(away_team.abbreviation)])
+    x2 = min([display.width - font_score.measure_text(str(home_score)), display.width - font_score.measure_text(str(away_score))])
+    display.draw_text(
+        int((x1 + x2) / 2) - int(font_score.measure_text(inning_txt) / 2),
+        int(display.height / 2) - int(font_score.height / 2),
+        inning_txt, font_score)
+
+    # draw indicator to show top/bottom of inning
+    if not final:
+        if top_of_inning:
+            display.fill_circle(int((x1 + x2) / 2) - 1, int(font_score.height / 2) - 2, 4)
+        else:
+            display.fill_circle(int((x1 + x2) / 2) - 1, display.height - int(font_score.height / 2) - 2, 4)
+
+    display.present()
 
 
 def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
@@ -204,50 +265,29 @@ def show_next_game(start_time: datetime, home_team: Team, away_team: Team):
     display.present()
 
 
-def show_ongoing_game(game: Game, interval: int):
-    while not game.finished:
-        gc.collect()
-        game.update()
-
-        set_runners(game.runners)
-        set_balls(game.balls)
-        set_strikes(game.strikes)
-        set_outs(game.outs)
-
-        display.clear()
-        display.draw_text8x8(0, 0, f'{game.away_team.abbreviation}: {game.away_runs}')
-        display.draw_text8x8(0, 16, f"{'T' if game.top_of_inning else 'B'}{game.inning}")
-        display.draw_text8x8(0, 32, f'{game.home_team.abbreviation}: {game.home_runs}')
-        display.present()
-
-        time.sleep(interval)
+def show_game(game: Game):
+    set_runners(game.runners)
+    set_count(game.balls, game.strikes, game.outs)
+    set_score(game.home_team, game.away_team, game.home_runs, game.away_runs, inning=game.inning, top_of_inning=game.top_of_inning)
 
 
-def show_finished_game(game: Game):
-    game.update()
-
-    # turn off all leds
-    set_runners((False, False, False))
-    set_balls(0)
-    set_strikes(0)
-    set_outs(0)
-
-    display.clear()
-    display.draw_text8x8(0, 0, f'{game.away_team.abbreviation}: {game.away_runs}')
-    display.draw_text8x8(0, 16, 'Final')
-    display.draw_text8x8(0, 32, f'{game.home_team.abbreviation}: {game.home_runs}')
-    display.present()
-
-    time.sleep(3600)
+def show_final(game: Game):
+    reset_leds()
+    set_score(game.home_team, game.away_team, game.home_runs, game.away_runs, final=True)
 
 
 def main():
     try:
         init_display()
+        init_fonts()
+
         connect_wifi(config.wifi_ssid, config.wifi_password)
-        time.sleep(2)
+        time.sleep(5)
+
         sync_time()
-        time.sleep(2)
+        time.sleep(5)
+
+        display_sys_msg('Loading schedule...')
 
         while True:
             gc.collect()
@@ -260,7 +300,7 @@ def main():
                 time.sleep(3600)
                 continue
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(local_tz)
             started = [x for x in schedule if x[1] <= now]
             upcoming = [x for x in schedule if x[1] > now]
 
@@ -270,19 +310,23 @@ def main():
                 continue
 
             game = Game(started[-1][0])
-            if game.finished:
-                show_finished_game(game)
-                time.sleep(3600)
-            else:
-                show_ongoing_game(game, config.update_interval)
+            while not game.finished:
+                game.update()
+                show_game(game)
+                time.sleep(config.update_interval)
+                gc.collect()
+
+            show_final(game)
+            time.sleep(3600)
     except Exception as e:
         sys.print_exception(e)
+        reset_leds()
         if display is not None:
-            display.clear()
-            display.draw_text8x8(0, 0, 'ERROR')
-            display.draw_text8x8(0, 8, 'Resetting in')
-            display.draw_text8x8(0, 16, '1 minute...')
-            display.present()
+            display_sys_msg([
+                '!!! ERROR !!!',
+                '',
+                'An error occurred.',
+                'Resetting in 1 minute...'])
         time.sleep(60)
         machine.reset()
 

@@ -16,10 +16,11 @@ These packages can be installed using `mip.install()` from either the [micropyth
 
 ## Configuration
 To configure the application, rename `config.example.py` to `config.py` and set values for the following variables:
+- `team_id`: This is the MLB team ID as returned by the [MLB Stats API](https://statsapi.mlb.com/api/v1/teams/?sportId=1) (default: `136` - Seattle Mariners)
+- `tz_offset`: This is the offset in hours from UTC for the local timezone (default: `-7` - Pacific Time)
+- `update_interval`: This is how many seconds to wait between fetching updates for an ongoing game (default: `60`)
 - `wifi_ssid`: This is the network SSID to connect to
 - `wifi_password`: This is the password to use for authentication
-- `team_id`: This is the MLB team ID as returned by the [MLB Stats API](https://statsapi.mlb.com/api/v1/teams/?sportId=1) (default: `136` - Seattle Mariners)
-- `update_interval`: This is how many seconds to wait between fetching updates for an ongoing game (default: `60`)
 
 ## Hardware
 This project requires the following:
