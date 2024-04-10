@@ -148,7 +148,7 @@ def display_msg(msg: list[str] | str, font: XglcdFont = font_sys):
         line_len = font.measure_text(l)
         display.draw_text(
             int(display.width / 2) - int(line_len / 2),
-            int(display.height / 2) + ((i - max(int(len(msg) / 2), 1)) * font.height),
+            int(display.height / 2) - int((font.height * len(msg)) / 2) + (i * font.height),
             l, font)
     display.present()
 
@@ -264,8 +264,9 @@ def show_no_games():
 
 def show_next_game(start_time: datetime, home_team: Team, away_team: Team):
     teams_txt = f'{away_team.abbreviation} @ {home_team.abbreviation}'
+    date_txt = f'{start_time.month}/{start_time.day}/{start_time.year}'
     time_txt = f"{((start_time.hour % 12) or 12):02d}:{start_time.minute:02d} {'AM' if start_time.hour < 12 else 'PM'}"
-    display_normal_msg([teams_txt, time_txt])
+    display_normal_msg([teams_txt, date_txt, time_txt])
 
 
 def show_game(game: Game):
