@@ -8,15 +8,18 @@ Once configured and running, the scorebug device will periodically poll the MLB 
 4. Display the final score of the last completed game today.
 
 ## Dependencies
-The following are the additional packages required to be installed onto the device:
+The following packages are required to be installed on the device:
+- datetime
 - [micropython-ssd1309](https://github.com/rdagger/micropython-ssd1309)
-- [mrequests](https://github.com/SpotlightKid/mrequests)
+
+These packages can be installed using `mip.install()` from either the [micropython-stdlib](https://github.com/micropython/micropython-lib) or their linked repository.
 
 ## Configuration
 To configure the application, rename `config.example.py` to `config.py` and set values for the following variables:
 - `wifi_ssid`: This is the network SSID to connect to
 - `wifi_password`: This is the password to use for authentication
-- `team_id`: This is the MLB team ID as returned by the [MLB Stats API](https://statsapi.mlb.com/api/v1/teams/?sportId=1)
+- `team_id`: This is the MLB team ID as returned by the [MLB Stats API](https://statsapi.mlb.com/api/v1/teams/?sportId=1) (default: `136` - Seattle Mariners)
+- `update_interval`: This is how many seconds to wait between fetching updates for an ongoing game (default: `60`)
 
 ## Hardware
 This project requires the following:
@@ -27,7 +30,7 @@ This project requires the following:
 - 2x Red LEDs
 
 ### Schematic
-![Schematic](https://i.imgur.com/OmjbsFJ.png)
+![Schematic](https://i.imgur.com/4w5ZDb3.png)
 
 ## Copyright Notice
 This project and its author are not affiliated with MLB or any MLB team.
