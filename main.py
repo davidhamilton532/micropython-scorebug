@@ -171,6 +171,7 @@ def connect_wifi(ssid: str, password: str):
     while not wlan.isconnected():
         time.sleep(1)
 
+    STATUS_LED.on()
     display_sys_msg(['Connected:', wlan.ifconfig()[0]])
 
 
