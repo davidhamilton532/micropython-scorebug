@@ -245,7 +245,7 @@ def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
     data = requests.get(f'https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId={team_pk}').json()
     for date in data['dates']:
         for game in date['games']:
-            game_datetime = datetime.fromisoformat(game['gameDate'].replace('Z', '+00:00')) + local_tz._offset
+            game_datetime = datetime.fromisoformat(game['gameDate'].replace('Z', '+00:00')).astimezone(tz=local_tz)
             games.append((
                 game['gamePk'],
                 game_datetime,
@@ -283,15 +283,10 @@ def main():
     try:
         init_display()
         init_fonts()
-
         connect_wifi(config.wifi_ssid, config.wifi_password)
-        time.sleep(5)
-
         sync_time()
-        time.sleep(5)
 
         display_sys_msg('Loading schedule...')
-
         while True:
             gc.collect()
 
@@ -300,6 +295,7 @@ def main():
 
             if len(schedule) == 0:
                 show_no_games()
+                print('Sleeping 1 hour...')
                 time.sleep(3600)
                 continue
 
@@ -309,18 +305,21 @@ def main():
 
             if len(started) == 0:
                 show_next_game(upcoming[0][1], upcoming[0][3], upcoming[0][4])
-                time.sleep((upcoming[0][1] - now).total_seconds() + 30)
+                print(f'Sleeping {(upcoming[0][1] - now).total_seconds()} seconds...')
+                time.sleep((upcoming[0][1] - now).total_seconds())
                 continue
 
             game = Game(started[-1][0])
             while not game.finished:
                 game.update()
                 show_game(game)
+                print(f'Sleeping {config.update_interval} seconds...')
                 time.sleep(config.update_interval)
                 gc.collect()
 
             game.update()
             show_final(game)
+            print('Sleeping 1 hour...')
             time.sleep(3600)
     except Exception as e:
         sys.print_exception(e)
@@ -331,6 +330,7 @@ def main():
                 '',
                 'An error occurred.',
                 'Resetting in 1 minute...'])
+        print('Sleeping 1 minute...')
         time.sleep(60)
         machine.reset()
 
