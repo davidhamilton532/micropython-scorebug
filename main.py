@@ -245,9 +245,10 @@ def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
     data = requests.get(f'https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId={team_pk}').json()
     for date in data['dates']:
         for game in date['games']:
+            game_datetime = datetime.fromisoformat(game['gameDate'].replace('Z', '+00:00')) + local_tz._offset
             games.append((
                 game['gamePk'],
-                datetime.fromisoformat(game['gameDate'].replace('Z', '+00:00')),
+                game_datetime,
                 game['status']['statusCode'],
                 Team(game['teams']['home']['team']['id']),
                 Team(game['teams']['away']['team']['id'])))
@@ -305,9 +306,6 @@ def main():
             now = datetime.now(local_tz)
             started = [x for x in schedule if x[1] <= now]
             upcoming = [x for x in schedule if x[1] > now]
-
-            show_next_game(started[-1][1], started[-1][3], started[-1][4])
-            time.sleep(3600)
 
             if len(started) == 0:
                 show_next_game(upcoming[0][1], upcoming[0][3], upcoming[0][4])
