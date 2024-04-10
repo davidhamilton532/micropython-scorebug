@@ -139,18 +139,26 @@ def reset_leds():
     set_count(0, 0, 0)
 
 
-def display_sys_msg(msg: list[str] | str):
+def display_msg(msg: list[str] | str, font: XglcdFont = font_sys):
     if not isinstance(msg, list):
         msg = msg.splitlines()
 
     display.clear()
     for i, l in enumerate(msg):
-        line_len = font_sys.measure_text(l)
+        line_len = font.measure_text(l)
         display.draw_text(
             int(display.width / 2) - int(line_len / 2),
-            int(display.height / 2) + ((i - max(int(len(msg) / 2), 1)) * font_sys.height),
-            l, font_sys)
+            int(display.height / 2) + ((i - max(int(len(msg) / 2), 1)) * font.height),
+            l, font)
     display.present()
+
+
+def display_sys_msg(msg: list[str] | str):
+    display_msg(msg=msg, font=font_sys)
+
+
+def display_normal_msg(msg: list[str] | str):
+    display_msg(msg=msg, font=font_normal)
 
 
 def connect_wifi(ssid: str, password: str):
@@ -233,6 +241,7 @@ def set_score(home_team: Team, away_team: Team, home_score: int, away_score: int
 
 def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
     games = []
+    # the data returned by this request just shows games for the current date
     data = requests.get(f'https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&teamId={team_pk}').json()
     for date in data['dates']:
         for game in date['games']:
@@ -249,20 +258,13 @@ def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
 
 
 def show_no_games():
-    display.clear()
-    display.draw_text8x8(0, 0, 'No Games Today!')
-    display.draw_text8x8(0, 8, 'Checking again')
-    display.draw_text8x8(0, 16, 'in 1 Hour...')
-    display.present()
+    display_sys_msg(['No Games Today!', 'Rechecking in 1 hour...'])
 
 
 def show_next_game(start_time: datetime, home_team: Team, away_team: Team):
-    display.clear()
-    display.draw_text8x8(0, 0, 'Next Game:')
-    display.draw_text8x8(0, 8, f'{away_team.abbreviation} v {home_team.abbreviation}')
-    display.draw_text8x8(0, 16, start_time.date().strftime('%m/%d/%Y'))
-    display.draw_text8x8(0, 24, start_time.date().strftime('%H:%M:%S'))
-    display.present()
+    teams_txt = f'{away_team.abbreviation} @ {home_team.abbreviation}'
+    time_txt = f"{((start_time.hour % 12) or 12):02d}:{start_time.minute:02d} {'AM' if start_time.hour < 12 else 'PM'}"
+    display_normal_msg([teams_txt, time_txt])
 
 
 def show_game(game: Game):
@@ -303,6 +305,9 @@ def main():
             now = datetime.now(local_tz)
             started = [x for x in schedule if x[1] <= now]
             upcoming = [x for x in schedule if x[1] > now]
+
+            show_next_game(started[-1][1], started[-1][3], started[-1][4])
+            time.sleep(3600)
 
             if len(started) == 0:
                 show_next_game(upcoming[0][1], upcoming[0][3], upcoming[0][4])
