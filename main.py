@@ -221,9 +221,9 @@ def set_score(home_team: Team, away_team: Team, home_score: int, away_score: int
     # draw indicator to show top/bottom of inning
     if not final:
         if top_of_inning:
-            display.fill_circle(int((x1 + x2) / 2), 8, 4)
+            display.fill_circle(int((x1 + x2) / 2), 12, 4)
         else:
-            display.fill_circle(int((x1 + x2) / 2), display.height - 8, 4)
+            display.fill_circle(int((x1 + x2) / 2), display.height - 12, 4)
 
     display.present()
 
