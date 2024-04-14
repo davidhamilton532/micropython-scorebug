@@ -127,8 +127,10 @@ def init_fonts():
 
 
 def reset_leds():
-    set_runners((False, False, False))
-    set_count(0, 0, 0)
+    set_runners(False, False, False)
+    set_balls(0)
+    set_strikes(0)
+    set_outs(0)
 
 
 def display_msg(msg: list[str] | str, font: XglcdFont = font_sys):
@@ -174,10 +176,10 @@ def sync_time():
     display_sys_msg(['Time synced:', now.isoformat()])
 
 
-def set_runners(runners: tuple[bool, bool, bool]):
-    RUNNER_1_LED.value(int(runners[0]))
-    RUNNER_2_LED.value(int(runners[1]))
-    RUNNER_3_LED.value(int(runners[2]))
+def set_runners(first: bool, second: bool, third: bool):
+    RUNNER_1_LED.value(int(first))
+    RUNNER_2_LED.value(int(second))
+    RUNNER_3_LED.value(int(third))
 
 
 def set_balls(balls: int):
@@ -194,12 +196,6 @@ def set_strikes(strikes: int):
 def set_outs(outs: int):
     OUT_1_LED.value(int(outs >= 1))
     OUT_2_LED.value(int(outs >= 2))
-
-
-def set_count(balls: int, strikes: int, outs: int):
-    set_balls(balls)
-    set_strikes(strikes)
-    set_outs(outs)
 
 
 def set_score(home_team: Team, away_team: Team, home_score: int, away_score: int, inning: int = 0, top_of_inning: bool = False, final: bool = False):
@@ -225,9 +221,9 @@ def set_score(home_team: Team, away_team: Team, home_score: int, away_score: int
     # draw indicator to show top/bottom of inning
     if not final:
         if top_of_inning:
-            display.fill_circle(int((x1 + x2) / 2), int(font_score.height / 2) - 2, 4)
+            display.fill_circle(int((x1 + x2) / 2), 8, 4)
         else:
-            display.fill_circle(int((x1 + x2) / 2), display.height - int(font_score.height / 2) - 2, 4)
+            display.fill_circle(int((x1 + x2) / 2), display.height - 8, 4)
 
     display.present()
 
@@ -261,8 +257,18 @@ def show_next_game(start_time: datetime, home_team: Team, away_team: Team):
 
 
 def show_game(game: Game):
-    set_runners(game.runners)
-    set_count(game.balls, game.strikes, game.outs)
+    # only light up runners/balls/strikes if < 3 outs recorded (inning still in progress)
+    if game.outs < 3:
+        set_runners(*game.runners)
+        set_balls(game.balls)
+        set_strikes(game.strikes)
+        set_outs(game.outs)
+    else:
+        set_runners(False, False, False)
+        set_balls(0)
+        set_strikes(0)
+        set_outs(game.outs)
+
     set_score(game.home_team, game.away_team, game.home_runs, game.away_runs, inning=game.inning, top_of_inning=game.top_of_inning)
 
 
