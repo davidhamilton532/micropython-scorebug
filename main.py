@@ -84,7 +84,7 @@ class Game:
 
     @property
     def finished(self) -> bool:
-        return self.status == 'F'
+        return self.status in ('O', 'F')
 
     @property
     def runner_on_first(self) -> bool:
