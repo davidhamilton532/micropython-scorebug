@@ -57,8 +57,6 @@ class Team:
         data = requests.get(f'https://statsapi.mlb.com/api/v1/teams/{pk}').json()
         self.name: str = data['teams'][0]['name']
         self.abbreviation: str = data['teams'][0]['abbreviation']
-        del data
-        gc.collect()
 
     def __str__(self):
         return f'({self.abbreviation}) {self.name}'
@@ -72,8 +70,6 @@ class Game:
         self.home_team: Team = Team(data['teams']['home']['team']['id'])
         self.away_team: Team = Team(data['teams']['away']['team']['id'])
         self.status: str = data['status']['statusCode']
-        del data
-        gc.collect()
 
         self.inning: int = 0
         self.top_of_inning: bool = True
@@ -112,13 +108,9 @@ class Game:
         self.balls = data['balls']
         self.strikes = data['strikes']
         self.outs = data['outs']
-        del data
-        gc.collect()
 
         data = requests.get(f'https://statsapi.mlb.com/api/v1/schedule/games/?sportId=1&gamePk={self.pk}').json()['dates'][0]['games'][0]
         self.status: str = data['status']['statusCode']
-        del data
-        gc.collect()
 
 
 def init_display():
@@ -254,8 +246,6 @@ def get_schedule(team_pk: int) -> list[tuple[int, datetime, str, Team, Team]]:
                 Team(game['teams']['home']['team']['id']),
                 Team(game['teams']['away']['team']['id'])))
 
-            gc.collect()
-
     return games
 
 
@@ -283,21 +273,32 @@ def show_final(game: Game):
 
 def main():
     try:
+        print('Initializing display...')
         init_display()
-        init_fonts()
-        connect_wifi(config.wifi_ssid, config.wifi_password)
-        sync_time()
+        print('Display initialized')
 
+        print('Loading fonts...')
+        init_fonts()
+        print('Fonts loaded')
+
+        print('Connecting to wifi...')
+        connect_wifi(config.wifi_ssid, config.wifi_password)
+        print('Connected to wifi')
+
+        print('Synchronizing time...')
+        sync_time()
+        print('Time synchronized')
+
+        print('Entering event loop...')
         display_sys_msg('Loading schedule...')
         while True:
-            gc.collect()
-
+            print('Getting schedule...')
             schedule = sorted(get_schedule(config.team_id), key=lambda x: x[1])
-            gc.collect()
+            print(f'Got schedule: {schedule}')
 
             if len(schedule) == 0:
                 show_no_games()
-                print('Sleeping 1 hour...')
+                print('No games scheduled - sleeping for 1 hour...')
                 time.sleep(3600)
                 continue
 
@@ -306,22 +307,24 @@ def main():
             upcoming = [x for x in schedule if x[1] > now]
 
             if len(started) == 0:
+                print(f'Next game: {upcoming[0]}')
                 show_next_game(upcoming[0][1], upcoming[0][3], upcoming[0][4])
-                print(f'Sleeping {(upcoming[0][1] - now).total_seconds()} seconds...')
+                print(f'Sleeping until game start...')
                 time.sleep((upcoming[0][1] - now).total_seconds())
                 continue
 
             game = Game(started[-1][0])
             while not game.finished:
                 game.update()
+                print(f'Game Update: {game}')
                 show_game(game)
                 print(f'Sleeping {config.update_interval} seconds...')
                 time.sleep(config.update_interval)
-                gc.collect()
 
             game.update()
+            print(f'Game Update: {game}')
             show_final(game)
-            print('Sleeping 1 hour...')
+            print('No more games today - sleeping 1 hour...')
             time.sleep(3600)
     except Exception as e:
         sys.print_exception(e)
@@ -332,7 +335,7 @@ def main():
                 '',
                 'An error occurred.',
                 'Resetting in 1 minute...'])
-        print('Sleeping 1 minute...')
+        print('Error - resetting in 1 minute...')
         time.sleep(60)
         machine.reset()
 
