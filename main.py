@@ -300,7 +300,6 @@ def main():
         while True:
             print('Getting schedule...')
             schedule = sorted(get_schedule(config.team_id), key=lambda x: x[1])
-            print(f'Got schedule: {schedule}')
 
             if len(schedule) == 0:
                 show_no_games()
@@ -313,7 +312,6 @@ def main():
             upcoming = [x for x in schedule if x[1] > now]
 
             if len(started) == 0:
-                print(f'Next game: {upcoming[0]}')
                 show_next_game(upcoming[0][1], upcoming[0][3], upcoming[0][4])
                 print(f'Sleeping until game start...')
                 time.sleep((upcoming[0][1] - now).total_seconds())
@@ -322,13 +320,11 @@ def main():
             game = Game(started[-1][0])
             while not game.finished:
                 game.update()
-                print(f'Game Update: {game}')
                 show_game(game)
                 print(f'Sleeping {config.update_interval} seconds...')
                 time.sleep(config.update_interval)
 
             game.update()
-            print(f'Game Update: {game}')
             show_final(game)
             print('No more games today - sleeping 1 hour...')
             time.sleep(3600)
