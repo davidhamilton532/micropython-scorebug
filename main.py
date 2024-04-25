@@ -71,7 +71,7 @@ class Game:
 
     @property
     def is_in_progress(self) -> bool:
-        return self.status in ('I',)
+        return self.status in ('I', 'L')
 
     @property
     def is_finished(self) -> bool:
